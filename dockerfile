@@ -12,5 +12,5 @@ FROM python:3.13-slim-bookworm
 COPY --from=builder /webapp /webapp
 ENV PATH="/webapp/.venv/bin:$PATH"
 WORKDIR /webapp
-EXPOSE 8501
+EXPOSE 8050
 CMD ["python", "main.py"]
