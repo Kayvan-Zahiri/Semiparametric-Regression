@@ -1,9 +1,3 @@
-# dash_semiparametric_regression.py
-# Plotly Dash conversion of the provided HTML interactive 'Regularization Explorer'
-# Usage: python dash_semiparametric_regression.py
-# Requirements: dash, dash-core-components, dash-html-components (these are bundled in "dash"),
-#               scikit-learn, pandas, numpy, plotly
-
 import numpy as np
 import pandas as pd
 from sklearn.datasets import make_regression
@@ -15,74 +9,8 @@ from dash import dcc, html, Input, Output, callback_context
 import plotly.graph_objects as go
 import plotly.express as px
 
-# ----------------------
-# CSS from the original HTML (kept mostly intact)
-# The app.index_string below injects this CSS into the page <head>
-CSS = r"""
-:root {
-    --primary: #2563eb;
-    --primary-dark: #1e40af;
-    --secondary: #8b5cf6;
-    --bg: #ffffff;
-    --bg-alt: #f8fafc;
-    --text: #1e293b;
-    --text-light: #64748b;
-    --border: #e2e8f0;
-    --shadow: rgba(0, 0, 0, 0.1);
-}
-
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.7; color: var(--text); background: var(--bg); }
-header { background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%); color: white; padding: 3rem 2rem; text-align: center; box-shadow: 0 4px 6px var(--shadow); }
-header h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }
-header p { font-size: 1.1rem; opacity: 0.95; }
-.author-info { margin-top: 1.5rem; font-size: 0.95rem; opacity: 0.9; }
-nav { background: var(--bg); border-bottom: 1px solid var(--border); padding: 1rem 2rem; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px var(--shadow); }
-nav ul { list-style: none; display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
-nav a { color: var(--text); text-decoration: none; font-weight: 500; }
-.container { max-width: 1200px; margin: 0 auto; padding: 3rem 2rem; }
-.blog-section { background: var(--bg); margin-bottom: 4rem; }
-.section-tag { display: inline-block; background: var(--primary); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600; margin-bottom: 1.5rem; }
-.app-section { background: var(--bg-alt); padding: 4rem 2rem; border-top: 2px solid var(--border); }
-.interactive-panel { background: var(--bg); border-radius: 12px; padding: 2rem; box-shadow: 0 4px 6px var(--shadow); margin-bottom: 2rem; }
-.controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
-.metric-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 8px; text-align: center; }
-.metric-label { font-size: 0.875rem; opacity: 0.9; margin-bottom: 0.5rem; }
-.metric-value { font-size: 2rem; font-weight: 700; }
-.visualization-container { background: white; border-radius: 8px; padding: 1rem; margin: 2rem 0; min-height: 300px; border: 1px solid var(--border); }
-.explanation-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 1.5rem; border-radius: 4px; margin-top: 2rem; }
-footer { background: var(--text); color: white; text-align: center; padding: 2rem; margin-top: 4rem; }
-@media (max-width: 768px) {
-    header h1 { font-size: 1.75rem; }
-}
-"""
-
-# ----------------------
-# Create Dash app
-app = dash.Dash(__name__)
-server = app.server
-
-# Inject CSS into the page header (keeps file single-file)
-app.index_string = f"""<!DOCTYPE html>
-<html>
-    <head>
-        {{%metas%}}
-        <title>Semiparametric Regression - Dash</title>
-        {{%favicon%}}
-        {{%css%}}
-        <style>{CSS}</style>
-    </head>
-    <body>
-        {{%app_entry%}}
-        <footer>
-            {{%config%}}
-            {{%scripts%}}
-            {{%renderer%}}
-        </footer>
-    </body>
-</html>"""
-
-# ----------------------
-# Helper functions
+app = dash.Dash(__name__, assets_folder="assets")
+app.title = "Semi-Parametric Regression Visualizer"
 
 
 def generate_data(n_samples=200, n_features=10, noise=0.5, random_state=1):
@@ -587,6 +515,5 @@ def update_coef_path(method, features, noise):
     return fig
 
 
-# ----------------------
 if __name__ == "__main__":
     app.run(debug=True, port=8050)
