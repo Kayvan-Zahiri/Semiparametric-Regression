@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Semiparametric Regression</title>
@@ -393,23 +395,18 @@
                 <h2>Theoretical Foundation</h2>
                 
                 <h3>Mathematical Framework</h3>
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+                <p>Standard semiparametric regression model.</p>
 
                 <div class="formula-box">
-                    L(β) = ||y - Xβ||² + λ·P(β)
-                </div>
+                    \[ Y_i = X_i^T \beta + g(Z_i) + \varepsilon_i \]
+                </div>  
 
-                <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
-
-                <h3>Key Concepts</h3>
-                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit:</p>
+                <p>Where:</p>
                 <ul style="margin-left: 2rem; margin-bottom: 1.5rem;">
-                    <li>Concept one: Lorem ipsum dolor sit amet, consectetur adipiscing elit</li>
-                    <li>Concept two: Sed do eiusmod tempor incididunt ut labore et dolore</li>
-                    <li>Concept three: Ut enim ad minim veniam, quis nostrud exercitation</li>
+                    <li>\( \beta \in \mathbb{R}^p \): finite-dimensional parameter</li>
+                    <li>\( g(\cdot) \): nonparametric part</li>
+                    <li>\( \varepsilon_i \): error term with \( \mathbb{E}[\varepsilon_i \mid X_i, Z_i] = 0 \)</li>
                 </ul>
-
-                <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem.</p>
             </section>
 
             <section id="comparison">
