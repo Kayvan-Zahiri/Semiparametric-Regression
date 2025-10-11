@@ -59,7 +59,7 @@ app.layout = html.Div(
                 [
                     html.Li(html.A("Introduction", href="#introduction")),
                     html.Li(html.A("Foundations & Motivation", href="#motivation")),
-                    html.Li(html.A("Methods & Estimation", href="#method")),
+                    html.Li(html.A("Methods", href="#method")),
                     html.Li(html.A("Applications & Extensions", href="#application")),
                     html.Li(html.A("References", href="#references")),
                 ]
@@ -621,10 +621,6 @@ app.layout = html.Div(
         ),
         html.Footer(
             className="footer",
-            children=[
-                html.P("\u00a9 2025 [Your Name] | MSDS Portfolio Project"),
-                html.P("Built with Dash + scikit-learn"),
-            ],
         ),
     ]
 )
@@ -968,4 +964,4 @@ def build_residual_figure(_):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8050)
+    app.run(port=8050)

@@ -301,6 +301,7 @@ p ul {
 .metric-label {
     font-size: 1.1rem;
     opacity: 0.9;
+    color: white;
     margin-bottom: 0.5rem;
 }
 

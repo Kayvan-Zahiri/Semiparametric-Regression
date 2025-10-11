@@ -13,4 +13,4 @@ COPY --from=builder /webapp /webapp
 ENV PATH="/webapp/.venv/bin:$PATH"
 WORKDIR /webapp
 EXPOSE 8050
-CMD ["python", "main.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8050", "main:app"]
