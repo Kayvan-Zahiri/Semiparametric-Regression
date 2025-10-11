@@ -34,19 +34,19 @@ header {
 }
 
 header h1 {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
 }
 
 header p {
-    font-size: 1.1rem;
+    font-size: 1.5rem;
     opacity: 0.95;
 }
 
 .author-info {
     margin-top: 1.5rem;
-    font-size: 0.95rem;
+    font-size: 1.25rem;
     opacity: 0.9;
 }
 
@@ -104,19 +104,19 @@ nav a:hover {
     color: white;
     padding: 0.5rem 1rem;
     border-radius: 20px;
-    font-size: 0.875rem;
+    font-size: 1rem;
     font-weight: 600;
     margin-bottom: 1.5rem;
 }
 
 h2 {
-    font-size: 2rem;
+    font-size: 2.5rem;
     margin: 2rem 0 1rem;
     color: var(--text);
 }
 
 h3 {
-    font-size: 1.5rem;
+    font-size: 2rem;
     margin: 1.5rem 0 1rem;
     color: var(--text);
 }
@@ -124,6 +124,11 @@ h3 {
 p {
     margin-bottom: 1.2rem;
     color: var(--text);
+    font-size: 1.1rem;
+}
+
+p ul {
+    padding-left: 3rem;
 }
 
 .highlight-box {
@@ -141,7 +146,12 @@ p {
     border-radius: 8px;
     text-align: center;
     font-family: 'Courier New', monospace;
-    font-size: 1.1rem;
+    font-size: 1rem;
+    overflow-x: auto;
+}
+
+.formula-box p{
+    font-size: 1.75rem;
     overflow-x: auto;
 }
 

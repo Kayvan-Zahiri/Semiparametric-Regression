@@ -1,65 +1,35 @@
 import numpy as np
 import pandas as pd
-from sklearn.datasets import make_regression
-from sklearn.linear_model import Ridge, Lasso, ElasticNet, LinearRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, mean_squared_error
-import dash
-from dash import dcc, html, Input, Output, callback_context
+from statsmodels.graphics.gofplots import qqplot
+import matplotlib
+from dash import dcc, html, Dash, Input, Output
 import plotly.graph_objects as go
 import plotly.express as px
+import statsmodels.formula.api as smf
 
-app = dash.Dash(__name__, assets_folder="assets")
+matplotlib.use("Agg")
+
+app = Dash(__name__, assets_folder="assets")
 app.title = "Semi-Parametric Regression Visualizer"
 
-
-def generate_data(n_samples=200, n_features=10, noise=0.5, random_state=1):
-    X, y, coef = make_regression(
-        n_samples=n_samples,
-        n_features=n_features,
-        noise=noise,
-        coef=True,
-        random_state=random_state,
-    )
-    return X, y, coef
-
-
-def fit_model(method, alpha, l1_ratio, X_train, y_train, X_test):
-    # alpha -> regularization strength (lambda in your HTML)
-    if method == "ridge":
-        model = Ridge(alpha=alpha)
-    elif method == "lasso":
-        model = Lasso(alpha=alpha, max_iter=10000)
-    elif method == "elastic":
-        # l1_ratio between 0 (Ridge) and 1 (Lasso)
-        model = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000)
-    else:
-        model = LinearRegression()
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
-    return model, preds
-
-
-# Compute coefficient path for a given method over a grid of alphas
-def coefficient_path(method, alphas, l1_ratio, X, y):
-    coefs = []
-    for a in alphas:
-        if method == "ridge":
-            m = Ridge(alpha=a)
-        elif method == "lasso":
-            m = Lasso(alpha=a, max_iter=10000)
-        elif method == "elastic":
-            m = ElasticNet(alpha=a, l1_ratio=l1_ratio, max_iter=10000)
-        else:
-            m = LinearRegression()
-        m.fit(X, y)
-        try:
-            coef = m.coef_
-        except Exception:
-            coef = np.zeros(X.shape[1])
-        coefs.append(coef)
-    coefs = np.array(coefs)  # shape: (len(alphas), n_features)
-    return coefs
+# Dataset
+boston = pd.read_csv("./data/boston_housing.csv")
+boston_mapping = {
+    "rm": "Average Number of Rooms",
+    "crim": "Crime Rate Per Capita",
+    "nox": "Nitric Oxides Concentration (pp10m)",
+    "age": "Proportion of Units Built Prior to 1940",
+    "dis": "Distance from Employment Centers",
+    "rad": "Accessibility to Highways",
+    "tax": "Property Tax Rate",
+    "ptratio": "Pupil-Teacher Ratio",
+}
+boston_options = [
+    {"label": boston_mapping[key], "value": key} for key in boston_mapping
+]
+boston_mlr = smf.ols(
+    "medv ~ crim + dis + nox + rm + age + rad + tax + ptratio", boston
+).fit()
 
 
 # ----------------------
@@ -80,9 +50,9 @@ app.layout = html.Div(
             html.Ul(
                 [
                     html.Li(html.A("Introduction", href="#introduction")),
-                    html.Li(html.A("Theory", href="#theory")),
-                    html.Li(html.A("Comparison", href="#comparison")),
-                    html.Li(html.A("Interactive App", href="#interactive")),
+                    html.Li(html.A("Foundations & Motivation", href="#motivation")),
+                    html.Li(html.A("Methods & Estimation", href="#method")),
+                    html.Li(html.A("Applications & Extensions", href="#application")),
                     html.Li(html.A("References", href="#references")),
                 ]
             )
@@ -93,7 +63,6 @@ app.layout = html.Div(
                 html.Div(
                     className="blog-content",
                     children=[
-                        html.Span("BLOG POST", className="section-tag"),
                         html.Section(
                             [
                                 html.H2("Introduction", id="introduction"),
@@ -111,14 +80,179 @@ app.layout = html.Div(
                         ),
                         html.Section(
                             [
-                                html.H2("Theoretical Foundation", id="theory"),
-                                html.H3("Mathematical Framework"),
+                                html.H2("Foundations & Motivation", id="motivation"),
                                 html.P(
-                                    "A common penalized loss used in regularized regression:"
+                                    "Now, you may be thinking to yourself, “I don’t even know what is a parametric model or a non-parametric model, let alone semiparametric!” Fret not! We will take things slow and start with the basics."
+                                ),
+                                html.H3("Parametric Models"),
+                                html.P(
+                                    "Imagine that you got a job offer in a different city, and now you have to decide which town to move to. You also happen to have saved up enough money for a down payment for your first house (yay!), so you’re interested in how different factors affect the median home price of a town. To explore these relationships, you would need a regression model, the simplest of which is the simple linear regression (SLR). As you probably already know, SLR uses a straight line to model the relationship between a single independent variable and a single dependent variable, expressed by the equation:"
                                 ),
                                 html.Pre(
-                                    "L(\u03b2) = ||y - X\u03b2||^2 + \u03bb \u00b7 P(\u03b2)",
+                                    dcc.Markdown(
+                                        "$$y = \\beta_0 + \\beta_1 x + \\epsilon$$",
+                                        mathjax=True,
+                                    ),
                                     className="formula-box",
+                                ),
+                                html.P(
+                                    [
+                                        "Where:",
+                                        dcc.Markdown(
+                                            """
+       - $y$ is the **dependent** variable
+       - $x$ is the **independent** variables
+       - $\\beta_0$ is the **intercept**, the estimated value of $y$ when $x$ is zero)
+       - $\\beta_1$ is the **slope/coefficient** indicating the change in $y$ for a one-unit increase in $x$. 
+       - $\\epsilon$ is the **error** term, representing the variation in y that the model doesn’t explain
+       """,
+                                            mathjax=True,
+                                        ),
+                                    ]
+                                ),
+                                html.P(
+                                    "SLR is an example of a parametric model because it has a fixed functional form (we assume that the independent variable and dependent variable has a linear relationship), and it has a finite number of parameters (in this case, two, which are the slope and the intercept)."
+                                ),
+                                html.P(
+                                    "Let’s get back to our scenario with an example. To explore the relationship between the number of rooms and housing price, we can fit a linear regression model."
+                                ),
+                                html.Div(
+                                    className="interactive-panel",
+                                    children=[
+                                        dcc.Dropdown(
+                                            id="boston-parameter",
+                                            options=boston_options,
+                                            value="rm",
+                                        ),
+                                        html.Div(
+                                            className="visualization-container",
+                                            children=[
+                                                dcc.Graph(id="slr"),
+                                            ],
+                                        ),
+                                        dcc.Markdown(id="equation", mathjax=True),
+                                        html.Div(
+                                            className="explanation-box",
+                                            children=[
+                                                html.H4(
+                                                    "\ud83d\udca1 How would you interpret the fitted parameters?"
+                                                ),
+                                                html.H4(
+                                                    "Select different options in the drop-down to see the relationships between different independent variable with house price."
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                html.P(
+                                    "We can even generalize this to the multiple linear regression:"
+                                ),
+                                html.Pre(
+                                    dcc.Markdown(
+                                        "$$y = \\beta_0 + \\beta_1 x_1 + \\beta_2 x_2 + \\dots + \\beta_n x_n + \\epsilon$$",
+                                        mathjax=True,
+                                    ),
+                                    className="formula-box",
+                                ),
+                                html.P(
+                                    [
+                                        "Where:",
+                                        dcc.Markdown(
+                                            """
+       - $y$ is the **dependent** variable
+       - $x_1, x_2, ..., x_n$ are the **independent** variables
+       - $\\beta_0$ is the **intercept**, the estimated value of $y$ when $x$ is zero)
+       - $\\beta_1, \\beta_2, ..., \\beta_n$ are the **coefficients** corresponding to each of the independent variables. 
+       - $\\epsilon$ is the **error** term, representing the variation in y that the model doesn’t explain
+       """,
+                                            mathjax=True,
+                                        ),
+                                    ]
+                                ),
+                                html.P(
+                                    "Let's fit a multiple linear regression model using all the parameters from above and see how well the model fits."
+                                ),
+                                html.Pre(
+                                    children=boston_mlr.summary().as_text(),
+                                    className="formula-box",
+                                ),
+                                html.P(
+                                    "Wow, looks like all the variables included are significant predictors of house price!"
+                                ),
+                                html.H3("⚠️ Hold up!!!! ⚠️"),
+                                html.P(
+                                    "The words of your favorite professor echoed:  “There's a time and place for everything, but not now. A model is only as good as its assumption!”"
+                                ),
+                                html.P(
+                                    [
+                                        "Let's review the assumptions of linear regression and see if they hold for the predictors.",
+                                        dcc.Markdown(
+                                            """
+        - **Linearity**: $x$ and $y$ have a linear relationship with each other 
+        - **Normality**: the errors follow a Normal distribution
+        - **Homoskedasticity**: the errors have constant variance (the spread of errors doesn't change along the $x$-axis)
+        - **Independence**: the errors are independent of each other
+        """,
+                                            mathjax=True,
+                                        ),
+                                    ]
+                                ),
+                                html.Div(
+                                    className="interactive-panel",
+                                    children=[
+                                        html.H3("Let's check if the assumptions hold"),
+                                        html.Div(
+                                            className="controls-grid",
+                                            children=[
+                                                html.Div(
+                                                    className="control-group",
+                                                    children=[
+                                                        html.Label("Plot"),
+                                                        dcc.Dropdown(
+                                                            id="plot",
+                                                            options=[
+                                                                {
+                                                                    "label": "Residuals vs. Fitted",
+                                                                    "value": "resid",
+                                                                },
+                                                                {
+                                                                    "label": "QQ-plot",
+                                                                    "value": "qq",
+                                                                },
+                                                            ],
+                                                            value="resid",
+                                                        ),
+                                                    ],
+                                                ),
+                                                html.Div(
+                                                    className="control-group",
+                                                    children=[
+                                                        html.Label("Predictor"),
+                                                        dcc.Dropdown(
+                                                            id="check-predictor",
+                                                            options=boston_options,
+                                                            value="rm",
+                                                        ),
+                                                    ],
+                                                ),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="visualization-container",
+                                            children=[
+                                                dcc.Graph(id="test"),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="explanation-box",
+                                            children=[
+                                                html.H3("\ud83d\udca1 Hint:"),
+                                                html.H4(
+                                                    html.Ul(id="assumption-comment")
+                                                ),
+                                            ],
+                                        ),
+                                    ],
                                 ),
                                 html.H3("Key Concepts"),
                                 html.Ul(
@@ -164,222 +298,6 @@ app.layout = html.Div(
                 )
             ],
         ),
-        html.Div(
-            className="app-section",
-            id="interactive",
-            children=[
-                html.Div(
-                    className="app-container",
-                    children=[
-                        html.Div(
-                            className="app-header",
-                            children=[
-                                html.Span(
-                                    "INTERACTIVE APPLICATION", className="section-tag"
-                                ),
-                                html.H2("Regularization Explorer"),
-                                html.P(
-                                    "Adjust the parameters below to visualize how different regularization techniques affect regression models"
-                                ),
-                            ],
-                        ),
-                        html.Div(
-                            className="interactive-panel",
-                            children=[
-                                html.H3("Control Panel"),
-                                html.Div(
-                                    className="controls-grid",
-                                    children=[
-                                        html.Div(
-                                            className="control-group",
-                                            children=[
-                                                html.Label("Regularization Method"),
-                                                dcc.Dropdown(
-                                                    id="method",
-                                                    options=[
-                                                        {
-                                                            "label": "Ridge Regression (L2)",
-                                                            "value": "ridge",
-                                                        },
-                                                        {
-                                                            "label": "Lasso Regression (L1)",
-                                                            "value": "lasso",
-                                                        },
-                                                        {
-                                                            "label": "Elastic Net",
-                                                            "value": "elastic",
-                                                        },
-                                                        {
-                                                            "label": "No Regularization",
-                                                            "value": "none",
-                                                        },
-                                                    ],
-                                                    value="ridge",
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="control-group",
-                                            children=[
-                                                html.Label(
-                                                    [
-                                                        "Lambda (\u03bb): ",
-                                                        html.Span(
-                                                            id="lambdaValue",
-                                                            children="1.0",
-                                                            className="slider-value",
-                                                        ),
-                                                    ]
-                                                ),
-                                                dcc.Slider(
-                                                    id="lambda",
-                                                    min=0.0,
-                                                    max=10.0,
-                                                    step=0.1,
-                                                    value=1.0,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="control-group",
-                                            children=[
-                                                html.Label(
-                                                    [
-                                                        "Number of Features: ",
-                                                        html.Span(
-                                                            id="featuresValue",
-                                                            children="10",
-                                                            className="slider-value",
-                                                        ),
-                                                    ]
-                                                ),
-                                                dcc.Slider(
-                                                    id="features",
-                                                    min=2,
-                                                    max=50,
-                                                    step=1,
-                                                    value=10,
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="control-group",
-                                            children=[
-                                                html.Label(
-                                                    [
-                                                        "Noise Level: ",
-                                                        html.Span(
-                                                            id="noiseValue",
-                                                            children="0.5",
-                                                            className="slider-value",
-                                                        ),
-                                                    ]
-                                                ),
-                                                dcc.Slider(
-                                                    id="noise",
-                                                    min=0.0,
-                                                    max=2.0,
-                                                    step=0.1,
-                                                    value=0.5,
-                                                ),
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                                html.Div(
-                                    className="visualization-container",
-                                    children=[dcc.Graph(id="main-scatter")],
-                                ),
-                                html.Div(
-                                    className="metrics-grid",
-                                    children=[
-                                        html.Div(
-                                            className="metric-card",
-                                            children=[
-                                                html.Div(
-                                                    "Training R²",
-                                                    className="metric-label",
-                                                ),
-                                                html.Div(
-                                                    id="train-r2",
-                                                    className="metric-value",
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="metric-card",
-                                            children=[
-                                                html.Div(
-                                                    "Test R²", className="metric-label"
-                                                ),
-                                                html.Div(
-                                                    id="test-r2",
-                                                    className="metric-value",
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="metric-card",
-                                            children=[
-                                                html.Div(
-                                                    "MSE", className="metric-label"
-                                                ),
-                                                html.Div(
-                                                    id="mse", className="metric-value"
-                                                ),
-                                            ],
-                                        ),
-                                        html.Div(
-                                            className="metric-card",
-                                            children=[
-                                                html.Div(
-                                                    "Non-Zero Coefficients",
-                                                    className="metric-label",
-                                                ),
-                                                html.Div(
-                                                    id="nonzero",
-                                                    className="metric-value",
-                                                ),
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                                html.Div(
-                                    className="explanation-box",
-                                    children=[
-                                        html.H4("\ud83d\udca1 What's happening here?"),
-                                        html.P(
-                                            "Adjust the parameters above to see how the model changes. The plots and metrics update automatically."
-                                        ),
-                                    ],
-                                ),
-                            ],
-                        ),
-                        html.Div(
-                            className="interactive-panel",
-                            children=[
-                                html.H3("Coefficient Path Visualization"),
-                                html.Div(
-                                    className="visualization-container",
-                                    children=[dcc.Graph(id="coef-path")],
-                                ),
-                                html.Div(
-                                    className="explanation-box",
-                                    children=[
-                                        html.H4(
-                                            "\ud83d\udca1 Understanding Coefficient Paths"
-                                        ),
-                                        html.P(
-                                            "This visualization shows how coefficients change as regularization strength increases. Notice how different regularization methods affect the coefficient trajectories differently."
-                                        ),
-                                    ],
-                                ),
-                            ],
-                        ),
-                    ],
-                )
-            ],
-        ),
         html.Footer(
             className="footer",
             children=[
@@ -390,129 +308,117 @@ app.layout = html.Div(
     ]
 )
 
+
 # ----------------------
 # Callbacks
+@app.callback(
+    Output("slr", "figure"),
+    Output("equation", "children"),
+    Input("boston-parameter", "value"),
+)
+def figure_1(x):
+    label = boston_mapping[x]
+    fig = px.scatter(boston, x=x, y="medv", trendline="ols")
+    fig.update_traces(
+        marker=dict(size=6, color="gray", opacity=0.6), selector=dict(mode="markers")
+    )
+    fig.update_traces(line=dict(color="red"), selector=dict(mode="lines"))
+    fig.update_layout(
+        title={
+            "text": f"{label} Impact on Median House Price",
+            "x": 0.5,
+            "xanchor": "center",
+        },
+        hovermode="closest",
+    )
+    results = px.get_trendline_results(fig)
+    model_results = results.px_fit_results.iloc[0]
+    slope = model_results.params[1]
+    intercept = model_results.params[0]
+    equation = (
+        f"Equation of the fitted model is: $$y = {intercept:.2f} + {slope:.2f}x$$"
+    )
+    return fig, equation
 
 
 @app.callback(
-    Output("lambdaValue", "children"),
-    Output("featuresValue", "children"),
-    Output("noiseValue", "children"),
-    Input("lambda", "value"),
-    Input("features", "value"),
-    Input("noise", "value"),
+    Output("test", "figure"),
+    Output("assumption-comment", "children"),
+    Input("plot", "value"),
+    Input("check-predictor", "value"),
 )
-def update_slider_labels(lam, feats, noise):
-    return f"{lam:.1f}", str(int(feats)), f"{noise:.1f}"
-
-
-@app.callback(
-    Output("main-scatter", "figure"),
-    Output("train-r2", "children"),
-    Output("test-r2", "children"),
-    Output("mse", "children"),
-    Output("nonzero", "children"),
-    Input("method", "value"),
-    Input("lambda", "value"),
-    Input("features", "value"),
-    Input("noise", "value"),
-)
-def update_main_plot(method, lam, features, noise):
-    # Generate synthetic data
-    X, y, true_coef = generate_data(
-        n_samples=300, n_features=int(features), noise=float(noise), random_state=42
-    )
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=42
-    )
-
-    # Fit model
-    l1_ratio = 0.5
-    model, preds = fit_model(
-        method,
-        alpha=float(lam),
-        l1_ratio=l1_ratio,
-        X_train=X_train,
-        y_train=y_train,
-        X_test=X_test,
-    )
-    train_preds = model.predict(X_train)
-
-    train_r2 = r2_score(y_train, train_preds)
-    test_r2 = r2_score(y_test, preds)
-    mse_val = mean_squared_error(y_test, preds)
-    nonzero = np.sum(np.abs(model.coef_) > 1e-6) if hasattr(model, "coef_") else 0
-
-    # Build a 2D projection to visualize: use first feature vs response for scatter
-    if X.shape[1] >= 2:
-        scatter_x = X_test[:, 0]
+def figure_2(plot, x):
+    if plot == "resid":
+        model = smf.ols(f"medv ~ {x}", boston).fit()
+        fig = px.scatter(x=model.fittedvalues, y=model.resid)
+        fig.update_traces(
+            marker=dict(size=6, color="gray", opacity=0.6),
+            selector=dict(mode="markers"),
+        )
+        fig.add_hline(y=0, line_width=1, line_dash="dash", line_color="black")
+        fig["layout"].update(
+            {
+                "title": f"Residuals vs. Fitted Values Plot: {boston_mapping[x]}",
+                "xaxis": {"title": "Residuals"},
+                "yaxis": {"title": "Sample Quantities"},
+                "showlegend": False,
+                "width": 700,
+                "height": 650,
+            }
+        )
+        comment = [
+            html.Li(
+                "Do the residuals look randomly distributed around the 0 line? If yes, the independent and dependent variable has a linear relationship."
+            ),
+            html.Li(
+                "Do the residuals roughly form a horizontal band around the 0 line? If yes, the error terms have roughly constant variance."
+            ),
+            html.Li(
+                "Is there a clear pattern of the points in the scatter plot? If no, the error terms are independent."
+            ),
+        ]
     else:
-        scatter_x = np.arange(len(y_test))
+        gauss_data = boston[x]
+        qqplot_data = qqplot(gauss_data, line="s").gca().lines
 
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=scatter_x,
-            y=y_test,
-            mode="markers",
-            name="Actual",
-            marker=dict(opacity=0.7),
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=scatter_x,
-            y=preds,
-            mode="markers",
-            name="Predicted",
-            marker=dict(opacity=0.9),
-        )
-    )
-    fig.update_layout(
-        title="Actual vs Predicted (projection on first feature)",
-        xaxis_title="Feature Value (first column)",
-        yaxis_title="Response",
-    )
+        fig = go.Figure()
 
-    # Format metrics nicely
-    return fig, f"{train_r2:.2f}", f"{test_r2:.2f}", f"{mse_val:.2f}", str(int(nonzero))
-
-
-@app.callback(
-    Output("coef-path", "figure"),
-    Input("method", "value"),
-    Input("features", "value"),
-    Input("noise", "value"),
-)
-def update_coef_path(method, features, noise):
-    # small dataset for coefficient path
-    X, y, _ = generate_data(
-        n_samples=200, n_features=int(features), noise=float(noise), random_state=0
-    )
-    alphas = np.logspace(-3, 1.5, 60)
-    coefs = coefficient_path(
-        method, alphas, l1_ratio=0.5, X=X, y=y
-    )  # shape (len(alphas), n_features)
-
-    fig = go.Figure()
-    for feat_idx in range(coefs.shape[1]):
         fig.add_trace(
-            go.Scatter(
-                x=np.log10(alphas),
-                y=coefs[:, feat_idx],
-                mode="lines",
-                name=f"Coef {feat_idx+1}",
-                opacity=0.8,
-            )
+            {
+                "type": "scatter",
+                "x": qqplot_data[0].get_xdata(),
+                "y": qqplot_data[0].get_ydata(),
+                "mode": "markers",
+                "marker": {"color": "gray"},
+            }
         )
 
-    fig.update_layout(
-        title="Coefficient paths vs log10(lambda)",
-        xaxis_title="log10(lambda)",
-        yaxis_title="Coefficient value",
-        showlegend=False,
-    )
-    return fig
+        fig.add_trace(
+            {
+                "type": "scatter",
+                "x": qqplot_data[1].get_xdata(),
+                "y": qqplot_data[1].get_ydata(),
+                "mode": "lines",
+                "line": {"color": "blue"},
+            }
+        )
+
+        fig["layout"].update(
+            {
+                "title": "Quantile-Quantile Plot",
+                "xaxis": {"title": "Theoretical Quantities"},
+                "yaxis": {"title": "Sample Quantities"},
+                "showlegend": False,
+                "width": 700,
+                "height": 650,
+            }
+        )
+        comment = [
+            html.Li(
+                "Do the points fall along a straight line? If yes, the error terms are Normally distributed."
+            )
+        ]
+    return fig, comment
 
 
 if __name__ == "__main__":
