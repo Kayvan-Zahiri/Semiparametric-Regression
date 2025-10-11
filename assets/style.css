@@ -94,7 +94,7 @@ nav a:hover {
 }
 
 .blog-content {
-    max-width: 800px;
+    max-width: 1000px;
     margin: 0 auto;
 }
 
@@ -299,7 +299,7 @@ p ul {
 }
 
 .metric-label {
-    font-size: 0.875rem;
+    font-size: 1.1rem;
     opacity: 0.9;
     margin-bottom: 0.5rem;
 }

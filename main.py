@@ -1,19 +1,27 @@
+from statsmodels.graphics.gofplots import qqplot
+from dash import dcc, html, Dash, Input, Output
+from pygam import LinearGAM, s
 import numpy as np
 import pandas as pd
-from statsmodels.graphics.gofplots import qqplot
 import matplotlib
-from dash import dcc, html, Dash, Input, Output
 import plotly.graph_objects as go
 import plotly.express as px
 import statsmodels.formula.api as smf
+import statsmodels.api as sm
+
 
 matplotlib.use("Agg")
 
 app = Dash(__name__, assets_folder="assets")
 app.title = "Semi-Parametric Regression Visualizer"
 
+# ----------------------
 # Dataset
 boston = pd.read_csv("./data/boston_housing.csv")
+
+
+# ----------------------
+# Section 1
 boston_mapping = {
     "rm": "Average Number of Rooms",
     "crim": "Crime Rate Per Capita",
@@ -30,6 +38,73 @@ boston_options = [
 boston_mlr = smf.ols(
     "medv ~ crim + dis + nox + rm + age + rad + tax + ptratio", boston
 ).fit()
+
+# ----------------------
+# Section 2
+X = boston.drop(columns=["medv"])
+y = boston["medv"]
+
+n = X.shape[0]
+
+terms = s(0)
+for i in range(1, X.shape[1]):
+    terms = terms + s(i)
+
+# Build GAM with predictors
+gam = LinearGAM(terms).fit(X, y)
+
+X_lr = sm.add_constant(X)
+ols_model = sm.OLS(y, X_lr).fit()
+# Predictions OLS
+y_pred_lr = ols_model.predict(X_lr)
+
+lr_r2 = 0.741
+lr_adjr2 = 0.734
+
+p_lr = X.shape[1] + 1
+
+# RSS for BIC
+rss_lr = ((y - y_pred_lr) ** 2).sum()
+bic_lr = n * np.log(rss_lr / n) + np.log(n) * p_lr
+
+aic_lr = ols_model.aic
+
+
+# Predictions GAM
+y_pred_gam = gam.predict(X)
+
+gam_r2 = 0.9168
+
+# Effective degrees of freedom
+edf = gam.statistics_["edof"]
+edf_total = edf if np.isscalar(edf) else sum(edf)
+
+# Adjusted R^2
+adj_r2_gam = 1 - (1 - gam_r2) * (n - 1) / (n - edf_total - 1)
+
+# BIC approximation
+rss_gam = ((y - y_pred_gam) ** 2).sum()
+bic_gam = n * np.log(rss_gam / n) + np.log(n) * edf_total
+
+# AIC and GCV from pyGAM
+aic_gam = gam.statistics_["AIC"]
+gcv_gam = gam.statistics_["GCV"]
+
+friendly_labels = {
+    "lstat": "Lower Status in Neighborhood",
+    "rm": "Average Number of Rooms",
+    "age": "Proportion of Old Houses",
+    "crim": "Per Capita Crime Rate",
+    "tax": "Property Tax Rate",
+    "ptratio": "Pupil-Teacher Ratio",
+    "nox": "Nitric Oxide Concentration",
+    "dis": "Distance to Employment Centers",
+    "indus": "Proportion of Non-retail Business Acres",
+    "zn": "Residential Land Zoning",
+    "b": "Proportion of Black Residents",
+    "chas": "Bounds Charles River (0 = No, 1 = Yes)",
+    "rad": "Accessibility to Radial Highways Index",
+}
 
 
 # ----------------------
@@ -254,27 +329,149 @@ app.layout = html.Div(
                                         ),
                                     ],
                                 ),
-                                html.H3("Key Concepts"),
-                                html.Ul(
-                                    [
-                                        html.Li("Concept one: Bias-variance tradeoff"),
-                                        html.Li(
-                                            "Concept two: Regularization encourages simpler models"
-                                        ),
-                                        html.Li(
-                                            "Concept three: Elastic Net mixes L1 and L2 penalties"
-                                        ),
-                                    ]
+                                html.P(
+                                    "Oh no! Looks like certain assumptions are violated for most of the predictors. If only there is another type of models that allow more flexibility with fewer assumptions!"
                                 ),
+                                html.P("Well, let me introduce to you..."),
                             ]
                         ),
                         html.Section(
                             [
-                                html.H2("Comparative Analysis", id="comparison"),
-                                html.H3("Method Comparison"),
-                                html.Pre(
-                                    "Ridge: ||\u03b2||_2^2   |   Lasso: ||\u03b2||_1   |   Elastic Net: \u03b1||\u03b2||_1 + (1-\u03b1)||\u03b2||_2^2",
-                                    className="formula-box",
+                                html.H2(
+                                    "Linear regression vs Nonparametric Regression"
+                                ),
+                                html.H3("Motivation for GAM"),
+                                html.P(
+                                    "Nonparametric regression is when there are infinite-dimensional parameters. A key part of this is through the smoothing function. A smoothing function is when the parameters don’t necessarily have a specific functional form, so it’s used as a way to estimate these relationships. The relationships are often non-linear, so having a way to model non-linear relationships is vital. In the real world, it’s challenging to find linear relationships given how much is out of our control. There are too many outside variables and inconsistencies that come into play. So, how do we proceed?"
+                                ),
+                                html.P(
+                                    "One way is through a Generalized Additive Model, or for short, a GAM. This is a common approach to being able to capture nonlinear relationships. It uses the aforementioned smoothing functions to better understand the data. Complex patterns are present throughout, so this approach allows for them to be seen."
+                                ),
+                                html.H3("GAM vs OLS"),
+                                html.P(
+                                    "For this deep dive, we’ll be using the same Boston housing dataset from above. The goal is to predict the median housing value (MEDV) from a variety of predictor variables. To list a few, there’s the property tax rate, per capita crime rate, and proportion of old houses, and much more."
+                                ),
+                                dcc.Markdown(
+                                    """
+                                    ```python
+                                    # We are trying to predict medv, so drop it from the predictors
+                                    X = df_boston.drop(columns=['medv'])
+                                    y = df_boston['medv']
+                                    n = X.shape[0]
+                                    
+                                    # Add predictors
+                                    terms = s(0)
+                                    for i in range(1, X.shape[1]):
+                                        terms = terms + s(i)
+
+                                    # Build GAM with predictors
+                                    gam = LinearGAM(terms).fit(X, y)
+                                    ```
+                                    """
+                                ),
+                                dcc.Markdown(
+                                    "The next steps are to fit the respective models. After fitting, we then predict and go on to analyze some key values for a potential model selection. The values we’ll be looking at are $R^2$, Adjusted $R^2$, BIC, and AIC.",
+                                    mathjax=True,
+                                ),
+                                html.P(
+                                    "It’s important to note that comparing the two models in some aspects can be challenging, and specifically for GAMs due to their infinite parameter set. For OLS, it’s a bit simpler to look at a value like AIC because we know the exact number of coefficients. However, with GAMs, we need things like effective degrees of freedom, splines, and penalties. "
+                                ),
+                                dcc.Markdown(
+                                    """
+                                    ```python
+                                    # Predictions OLS
+                                    y_pred_lr = ols_model.predict(X_lr)
+
+                                    lr_r2 = 0.741
+                                    lr_adjr2 = 0.734
+
+                                    p_lr = X.shape[1] + 1
+
+                                    # RSS for BIC
+                                    rss_lr = ((y - y_pred_lr)**2).sum()
+                                    bic_lr = n * np.log(rss_lr / n) + np.log(n) * p_lr
+
+                                    aic_lr = ols_model.aic
+
+
+                                    # Predictions GAM
+                                    y_pred_gam = gam.predict(X)
+
+                                    gam_r2 = 0.9168
+
+                                    # Effective degrees of freedom
+                                    edf = gam.statistics_['edof']
+                                    edf_total = edf if np.isscalar(edf) else sum(edf)
+
+                                    # Adjusted R^2
+                                    adj_r2_gam = 1 - (1 - gam_r2)*(n - 1)/(n - edf_total - 1)
+
+                                    # BIC approximation
+                                    rss_gam = ((y - y_pred_gam)**2).sum()
+                                    bic_gam = n * np.log(rss_gam / n) + np.log(n) * edf_total
+
+                                    # AIC and GCV from pyGAM
+                                    aic_gam = gam.statistics_['AIC']
+                                    gcv_gam = gam.statistics_['GCV']
+                                    ```
+                                    """
+                                ),
+                                html.Div(
+                                    className="metric-card",
+                                    children=[
+                                        html.P(
+                                            f"GAM R^2: {gam_r2} vs. OLS R^2: {lr_r2}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"GAM Adjusted R^2: {adj_r2_gam} vs. OLS Adjusted R^2: {lr_adjr2}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"GAM BIC (approx): {bic_gam} vs. OLS BIC: {bic_lr}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"GAM AIC: {aic_gam} vs. OLS AIC: {aic_lr}",
+                                            className="metric-label",
+                                        ),
+                                    ],
+                                ),
+                                dcc.Markdown(
+                                    "In analyzing the above results, we can see that GAM are favored in terms of $R^2$, Adjusted $R^2$, and BIC. However, OLS wins for AIC. Why might this be? The GAM has a large effective degrees of freedom count, potentially offsetting the log likelihood improvement. The AIC vs BIC results are somewhat surprising, but from the overall results, GAM is favored. ",
+                                    mathjax=True,
+                                ),
+                                html.P(
+                                    "To further dive into this, let’s create an interactive Plotly visualization! For each predictor, we plot the actual data points of the observed house prices vs that predictor, the linear regression prediction, and the GAM prediction. "
+                                ),
+                                html.Div(
+                                    className="interactive-panel",
+                                    children=[
+                                        html.Div(
+                                            className="visualization-container",
+                                            children=[
+                                                dcc.Graph(id="figure3"),
+                                            ],
+                                        ),
+                                        html.Div(
+                                            className="explanation-box",
+                                            children=[
+                                                html.H4(
+                                                    "From the visualizations, we can see some quite similar plots and very different ones. Some predictors with similar blue and red lines are lower status in neighborhood, pupil-teacher ratio, proportion of black residents, and more. The similar ones suggest that there is a linear relationship and that perhaps we should stick with OLS, whereas the others indicate that a GAM is better. One interesting plot that stands out is the age of the house. Does the age not impact the price that much? Maybe, given how there can be an old fixer-upper, or conversely, a Painted Lady. "
+                                                ),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                html.H3("Tradeoffs"),
+                                html.P(
+                                    "So, when should we go with linear regression vs something nonparametric, like a GAM, and vice versa? Like all situations…it depends. With linear regression, it’s much simpler to understand and interpret. There are clear values in regards to each predictor and how much they will impact the outcome. However, again, they are less flexible and can miss nonlinear relationships. Big patterns and curves can be missed, but if you’re expecting linear relationships, the choice is most likely OLS."
+                                ),
+                                html.P(
+                                    "For GAMs, a big plus is flexibility. Nonlinear relationships are captured, resulting in better predictions for a lot of real-world situations. However, some big downfalls are interpretability and communication. There isn’t a direct slope or number for each predictor you can point to, indicating how this particular variable affects the outcome. For non-technical audiences that you may be working with, getting your point across becomes a bigger challenge."
+                                ),
+                                html.P(
+                                    "Overall, there are a variety of pros and cons for each type of model. Linear regression models are easier to interpret and understand, but the ability to capture more complex, nonlinear relationships is decreased. Conversely, nonparametric models can have increased accuracy, but are more challenging to interpret and communicate. Deciding which route to go ultimately depends on the domain, your team, and the situation. "
                                 ),
                             ]
                         ),
@@ -329,6 +526,8 @@ def figure_1(x):
             "x": 0.5,
             "xanchor": "center",
         },
+        width=900,
+        height=700,
         hovermode="closest",
     )
     results = px.get_trendline_results(fig)
@@ -362,8 +561,8 @@ def figure_2(plot, x):
                 "xaxis": {"title": "Residuals"},
                 "yaxis": {"title": "Sample Quantities"},
                 "showlegend": False,
-                "width": 700,
-                "height": 650,
+                "width": 900,
+                "height": 850,
             }
         )
         comment = [
@@ -409,8 +608,8 @@ def figure_2(plot, x):
                 "xaxis": {"title": "Theoretical Quantities"},
                 "yaxis": {"title": "Sample Quantities"},
                 "showlegend": False,
-                "width": 700,
-                "height": 650,
+                "width": 900,
+                "height": 850,
             }
         )
         comment = [
@@ -419,6 +618,108 @@ def figure_2(plot, x):
             )
         ]
     return fig, comment
+
+
+@app.callback(Output("figure3", "figure"), Input("figure3", "id"))
+def figure_3(_):
+    predictors = X.columns.tolist()
+    n_predictors = len(predictors)
+
+    fig = go.Figure()
+
+    for i, predictor in enumerate(predictors):
+        x_vals = np.linspace(X[predictor].min(), X[predictor].max(), 100)
+
+        # Linear regression line for predictor
+        beta_0 = ols_model.params.iloc[0]
+        beta_i = ols_model.params.iloc[i + 1]
+        y_pred_lr_line = beta_0 + beta_i * x_vals
+
+        # GAM smooth for predictor
+        X_grid = X.mean().values.reshape(1, -1).repeat(100, axis=0)
+        X_grid[:, i] = x_vals
+        y_pred_gam_line = gam.predict(X_grid)
+
+        # Scatter points (actual house prices)
+        fig.add_trace(
+            go.Scatter(
+                x=X[predictor],
+                y=y,
+                mode="markers",
+                name="Actual Prices",
+                visible=(i == 0),
+                marker=dict(color="lightgrey"),
+                hovertemplate=f"{friendly_labels.get(predictor,predictor)}: %{{x}}<br>Price: $%{{y}}k",
+            )
+        )
+
+        # Linear regression line
+        fig.add_trace(
+            go.Scatter(
+                x=x_vals,
+                y=y_pred_lr_line,
+                mode="lines",
+                name="Simple Linear Prediction",
+                visible=(i == 0),
+                line=dict(color="blue", width=3),
+            )
+        )
+
+        # GAM smooth line
+        fig.add_trace(
+            go.Scatter(
+                x=x_vals,
+                y=y_pred_gam_line,
+                mode="lines",
+                name="Flexible Prediction",
+                visible=(i == 0),
+                line=dict(color="red", width=3),
+            )
+        )
+
+    # Dropdown menu
+    buttons = []
+    for i, predictor in enumerate(predictors):
+        visible = [False] * n_predictors * 3
+        visible[i * 3 : i * 3 + 3] = [True, True, True]
+
+        # Friendly display name for title/axes
+        display_name = friendly_labels.get(predictor, predictor)
+
+        buttons.append(
+            dict(
+                label=predictor.lower(),
+                method="update",
+                args=[
+                    {"visible": visible},
+                    {
+                        "title": f"House Price vs {display_name}",
+                        "xaxis": {"title": display_name},
+                        "yaxis": {"title": "House Price ($1000s)"},
+                    },
+                ],
+            )
+        )
+
+    fig.update_layout(
+        updatemenus=[
+            dict(active=0, buttons=buttons, x=1.05, y=1, xanchor="right", yanchor="top")
+        ],
+        title=f"House Price vs {friendly_labels.get(predictors[0], predictors[0])}",
+        xaxis_title=friendly_labels.get(predictors[0], predictors[0]),
+        yaxis_title="House Price ($1000s)",
+        legend=dict(
+            x=0.02,
+            y=0.999,
+            bgcolor="rgba(255,255,255,0.7)",
+            bordercolor="black",
+            borderwidth=1,
+        ),
+        width=900,
+        height=600,
+    )
+
+    return fig
 
 
 if __name__ == "__main__":

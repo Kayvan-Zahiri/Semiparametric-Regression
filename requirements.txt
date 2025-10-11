@@ -25,8 +25,7 @@ numpy==2.3.3
 packaging==25.0
 pandas==2.3.3
 patsy==1.0.1
-pennylane==0.42.3
-pennylane-lightning==0.42.0
+pygam
 plotly==6.3.1
 python-dateutil==2.9.0.post0
 pytz==2025.2
