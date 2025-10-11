@@ -553,14 +553,6 @@ app.layout = html.Div(
                                             f"GAM AIC: {gam_model.aic}, BIC: {gam_model.bic}",
                                             className="metric-label",
                                         ),
-                                        html.P(
-                                            f"The F-statistic of the hypothesis that the error variance does not depend on x.: {white_test[2]:.5f}",
-                                            className="metric-label",
-                                        ),
-                                        html.P(
-                                            f"The p-value for the F-statistic: {white_test[3]}",
-                                            className="metric-label",
-                                        ),
                                     ],
                                 ),
                                 html.P(
@@ -619,9 +611,9 @@ app.layout = html.Div(
                 )
             ],
         ),
-        html.Footer(
-            className="footer",
-        ),
+        # html.Footer(
+        #     className="footer",
+        # ),
     ]
 )
 
