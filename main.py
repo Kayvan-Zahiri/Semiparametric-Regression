@@ -1,13 +1,13 @@
 from statsmodels.graphics.gofplots import qqplot
 from dash import dcc, html, Dash, Input, Output
-from pygam import LinearGAM, s
-import numpy as np
+from plotly.subplots import make_subplots
 import pandas as pd
 import matplotlib
 import plotly.graph_objects as go
 import plotly.express as px
 import statsmodels.formula.api as smf
-import statsmodels.api as sm
+from section2 import *
+from section3 import *
 
 
 matplotlib.use("Agg")
@@ -38,73 +38,6 @@ boston_options = [
 boston_mlr = smf.ols(
     "medv ~ crim + dis + nox + rm + age + rad + tax + ptratio", boston
 ).fit()
-
-# ----------------------
-# Section 2
-X = boston.drop(columns=["medv"])
-y = boston["medv"]
-
-n = X.shape[0]
-
-terms = s(0)
-for i in range(1, X.shape[1]):
-    terms = terms + s(i)
-
-# Build GAM with predictors
-gam = LinearGAM(terms).fit(X, y)
-
-X_lr = sm.add_constant(X)
-ols_model = sm.OLS(y, X_lr).fit()
-# Predictions OLS
-y_pred_lr = ols_model.predict(X_lr)
-
-lr_r2 = 0.741
-lr_adjr2 = 0.734
-
-p_lr = X.shape[1] + 1
-
-# RSS for BIC
-rss_lr = ((y - y_pred_lr) ** 2).sum()
-bic_lr = n * np.log(rss_lr / n) + np.log(n) * p_lr
-
-aic_lr = ols_model.aic
-
-
-# Predictions GAM
-y_pred_gam = gam.predict(X)
-
-gam_r2 = 0.9168
-
-# Effective degrees of freedom
-edf = gam.statistics_["edof"]
-edf_total = edf if np.isscalar(edf) else sum(edf)
-
-# Adjusted R^2
-adj_r2_gam = 1 - (1 - gam_r2) * (n - 1) / (n - edf_total - 1)
-
-# BIC approximation
-rss_gam = ((y - y_pred_gam) ** 2).sum()
-bic_gam = n * np.log(rss_gam / n) + np.log(n) * edf_total
-
-# AIC and GCV from pyGAM
-aic_gam = gam.statistics_["AIC"]
-gcv_gam = gam.statistics_["GCV"]
-
-friendly_labels = {
-    "lstat": "Lower Status in Neighborhood",
-    "rm": "Average Number of Rooms",
-    "age": "Proportion of Old Houses",
-    "crim": "Per Capita Crime Rate",
-    "tax": "Property Tax Rate",
-    "ptratio": "Pupil-Teacher Ratio",
-    "nox": "Nitric Oxide Concentration",
-    "dis": "Distance to Employment Centers",
-    "indus": "Proportion of Non-retail Business Acres",
-    "zn": "Residential Land Zoning",
-    "b": "Proportion of Black Residents",
-    "chas": "Bounds Charles River (0 = No, 1 = Yes)",
-    "rad": "Accessibility to Radial Highways Index",
-}
 
 
 # ----------------------
@@ -338,7 +271,8 @@ app.layout = html.Div(
                         html.Section(
                             [
                                 html.H2(
-                                    "Linear regression vs Nonparametric Regression"
+                                    "Linear regression vs Nonparametric Regression",
+                                    id="method",
                                 ),
                                 html.H3("Motivation for GAM"),
                                 html.P(
@@ -477,14 +411,204 @@ app.layout = html.Div(
                         ),
                         html.Section(
                             [
+                                html.H2("Applications & Extensions", id="application"),
+                                html.H3("Motivation & Use Cases"),
+                                html.P(
+                                    "So, when is a linear model too simple and rigid to encapsulate the full complexity of a dataset?  Well, quite honestly, that's up to the judgement of the person generating the model."
+                                ),
+                                dcc.Markdown(
+                                    "One of the key assumptions of the OLS linear regression model is that there exhibits a linear relationship between the coefficients $\\beta$ and the response $Y$, and while there are an almost indefinite number of ways to transform a given dataset to meet this assumption, don't you think that this requirement can be a bit rigid?",
+                                    mathjax=True,
+                                ),
+                                html.P(
+                                    "Sometimes, in domains such as in medicine and social sciences, the relationships between variables are flexible and influential on one another.  In the comparison of linear (parametric) and non-parametric models, the later does not require any explicit definition of interaction to pick up on such patterns.  If this seems too good to be true, it actually is.  The estimation of these non-parametric functions takes away the clear interpretability offered by linear regression models; all that you're left with is the curve."
+                                ),
+                                html.P(
+                                    "Similarly to parametric regression models too, non-parametric predictors are plagued with the same curse of dimensionality. As we will encounter later in the demo, the flexible parts of the semi-parametric model stich together small, preset functions, which are weighted through a loss function to estimate a given distribution.  Each one of these functions adds a degree of freedom, resulting in overfitting, a loss of statistical power, and an increase in computational cost."
+                                ),
+                                html.P(
+                                    "Below we are going to do a deep-dive demo, demonstrating the difference between linear and non-parametric models, and the benefits of using them both in a semi-parametric regression model."
+                                ),
+                                html.H3(
+                                    "Single-Variable Fits: Linear vs. Semi-Parametric"
+                                ),
+                                html.P(
+                                    "We'll start this demo by introducing our dataset.  We will be using the 2019 World Happiness Report, which essentially asks people around the world how happy they are on a scale of 1-10.  The predictor variables, as listed below, are metrics meant to explain the impact on the average happiness levels in each respective country.  There is plenty of opportunity for interactive impacts on this dataset, along with the natural complexities of quantitatively measuring happiness.  I'm personally not aware of any scientifically explained linear relationships between corruption and happiness, making this an interesting problem!"
+                                ),
+                                dcc.Markdown(
+                                    "We're going to start this demo by doing single variable comparisons between each of the potential predictors: `gdp`, `support`, `lifeexp`, `freedom`, `generosity`, and `corruption`, with our response variable, `score`.  Below is an interactive scatter plot demonstrating the differences in regression model fitting between a linear parametric model and a nonlinear non-parametric model.",
+                                    mathjax=True,
+                                ),
+                                html.Div(
+                                    className="interactive-panel",
+                                    children=[
+                                        html.Div(
+                                            className="visualization-container",
+                                            children=[
+                                                dcc.Graph(id="figure4"),
+                                            ],
+                                        )
+                                    ],
+                                ),
+                                html.P(
+                                    "As demonstrated above, it seems that the non-parametric curve is really good on picking up subtle nuances in the data, but as mentioned, there's no rigid or explicit way to mathematically interpret this relationship besides looking at the graph.  In order to pick which predictors may be better fit for a non-parametric curve in a full-model, it's a good idea to see another side-by-side comparison of residuals."
+                                ),
+                                html.Div(
+                                    className="interactive-panel",
+                                    children=[
+                                        html.Div(
+                                            className="visualization-container",
+                                            children=[
+                                                dcc.Graph(id="figure5"),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                html.P(
+                                    "So while the linear residuals don't exhibit any clear patterns of non-linearity, the residuals for the non-parametric model do demonstrate marginally positive differences.  It seems that the residuals are more spread out and symmetric on the right for almost all predictors, but I also want to reiterate that there are no obvious signs of heteroskedasticity on the left.  Taking all of this into account though, this was meant to just be initial expousure to the difference between parametric and non-parametric models.  Of course, variables interact with eachother, and the predictive power of a predictor may change significantly when added to a MLR model.  In the next section, we look to tackle model selection."
+                                ),
+                                html.H3("ANOVA & Model Selection"),
+                                html.P(
+                                    "Before we jump the gun and try to fix something that may already work, let's look at a sequential ANOVA test on a simple MLR model predicting happiness."
+                                ),
+                                html.Pre(
+                                    children=str(anova_results),
+                                    className="formula-box",
+                                ),
+                                dcc.Markdown(
+                                    "Well, when put in this order, it seems that each predictor explains a significant level of variance on our response, `score`.  Just because one model works though, does not mean another is not necessary.  As mentioned in the residual section, there are no clear signs of blatant non-linearity or heteroskedasticity, but also there are statistical tests meant to measure this sort of thing.  Enter, the White test, which essentially regresses the square of the residuals onto the original regressors, their squares, and their cross-products, and calculates something called the auxilliary regression, which follows a chi-squared distribution with k degrees of freedom.",
+                                    mathjax=True,
+                                ),
+                                html.Div(
+                                    className="metric-card",
+                                    children=[
+                                        html.H4("Het-white results"),
+                                        html.P(
+                                            f"Lagrange multiplier statistic: {white_test[0]:.5f}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"The p-value of lagrange multiplier test.: {white_test[1]:.5f}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"The F-statistic of the hypothesis that the error variance does not depend on x.: {white_test[2]:.5f}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"The p-value for the F-statistic: {white_test[3]}",
+                                            className="metric-label",
+                                        ),
+                                    ],
+                                ),
+                                html.P(
+                                    "The second test-statistic is an F-test, which is the usual statistic for auxilliary regression.  It is meant to test whether extra regressors significantly explain the squared residuals, and with an incredibly low p-value, our Het White test suggests that there is significant heteroskedasticity in this dataset.  I do find it worthy to outline that there are patterns of increased Type-I error in smaller datasets, but even so, the significant results make it at least a try to fit a semi-parametric model onto this dataset."
+                                ),
+                                html.P(
+                                    "But the quesiton that remains is, how do we even know which predictors to fit as parametric and which to fit as non-parametric?  In the case of this model, we're going to use a process where we assume every predictor is linear, and one by one, we test whether a predictor being non-parametric adds the necessary amount of predictive power, while keeping model complexity into account.  We can continue this cycle until there's no further improvements."
+                                ),
+                                html.Pre(
+                                    children=[
+                                        f"Linear predictors: {sss_result["linear_vars"]}\n",
+                                        f"Smooth predictors: {sss_result["smooth_vars"]}\n\n",
+                                        sss_result["best_model"].summary().as_text(),
+                                    ],
+                                    className="formula-box",
+                                ),
+                                dcc.Markdown(
+                                    "As we can see, the algorithm decided that `freedom`, `corruption`, and `generosity` are best suited as linear predictors, while `support`, `lifeexp`, and `gdp` were chosen to be smooth.  If we take a deeper dive into the table, each smooth predictor has 6 functions associated with it.  These functions are called `B-splines`.  They are essentiallly independent, pre-determined functions which are weighted to find the optimal function approximation between a given predictor and the response.  When a p-value is insignificant, it is just suggesting that this specific spline has no significant impact on approximating the curve. ",
+                                    mathjax=True,
+                                ),
+                                html.P(
+                                    "In our problem, we chose 6 basis functions for each non-parametric parameter.  It is general practice to start with between 5 and 10 per predictor, and we thought 6 basis functions provides enough to take account for subtle nuances while keeping the degrees of freedom in check.  While there are some limited options to go through hyper-parameter tuning, such as using metrics like AIC/BIC, GAM models already use their own penalties to determine which and how many basis functions to include in the final model.  The number of basis functions you intially provide is essentially a safe upper bound for your model to converge from."
+                                ),
+                                dcc.Markdown(
+                                    "We can also see that two of the predictors that were chosen to be linear, `corruption` and `generosity`, did not provide any sort of additional explanation when predicting happiness.  As a result, we will omit these predictors from our final model.",
+                                    mathjax=True,
+                                ),
+                                html.H3("Full Model Comparison"),
+                                dcc.Markdown(
+                                    "In order to truly gauge the effectiveness of this final mixed, semi-parametric model, I found it necessary to fit a simple MLR model using all of our predictors, besides `generosity`, which did not provide the necessary predictive power.",
+                                    mathjax=True,
+                                ),
+                                html.Pre(
+                                    children=[ols_model.summary().as_text()],
+                                    className="formula-box",
+                                ),
+                                html.Pre(
+                                    children=[gam_model.summary().as_text()],
+                                    className="formula-box",
+                                ),
+                                html.P(
+                                    "In order to compare these two models, we will use AIC and BIC, which both have their own penalties that should take into account the additional degrees of freedom introduced by the semi-parametric model."
+                                ),
+                                html.Div(
+                                    className="metric-card",
+                                    children=[
+                                        html.P(
+                                            f"OLS AIC: {ols_model.aic}, BIC: {ols_model.bic}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"GAM AIC: {gam_model.aic}, BIC: {gam_model.bic}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"The F-statistic of the hypothesis that the error variance does not depend on x.: {white_test[2]:.5f}",
+                                            className="metric-label",
+                                        ),
+                                        html.P(
+                                            f"The p-value for the F-statistic: {white_test[3]}",
+                                            className="metric-label",
+                                        ),
+                                    ],
+                                ),
+                                html.P(
+                                    "Interestingly, while AIC performs slightly better in our semi-parametric model than the full linear model, the BIC for the semi-parametric model came back negative, and not just negative, but *very* negative.  This was originally a quite shocking result, especially considering that BIC is supposed to penalize models more harshly for model complexity.  I deduce that the incredibly low metric numbers for our BIC are due to the ability for non-parametric variables to pick up on nuances that are simply not possible in a simple MLR model, almost similar to a deep neural network.  Despite these significant results, I want to finish this demo with a discussion on the practicality of semi-parametric models."
+                                ),
+                                html.H3("Takeaways"),
+                                html.P(
+                                    "Although we were initially excited by the results of this demo, we have to ground ourselves and consider the very real tradeoffs when dealing with semi-parametric and non-parametric regression models."
+                                ),
+                                dcc.Markdown(
+                                    "In the specific case of this demo, it was just unrealistic to perform k-fold cross validation to test whether the semi-parametric model was potentially overfitting the data.  The original **Happiness Report** only included approximately 150 data points, and maybe our semi-parametric model was just able to pick up on every single nuance and interaction between the predictors. "
+                                ),
+                                dcc.Markdown(
+                                    "Additionally, the loss of interpretability cannot be over-stated.  One of the biggest benefits to the linear regression model, despite its simplicities, is you see *exactly* what is going on under the hood.  The coefficient interpretations provide isolated and clear takeaways that can be demonstrated to a non-technical audience.  Like almost all model-selection discussions, the choice between semi-parametric and linear models comes down to your purpose."
+                                ),
+                                dcc.Markdown(
+                                    "*Does interpretation even add anything?*"
+                                ),
+                                html.P(
+                                    "In the case of scientific or economic forecasting, the main goal is coming up with models that predict accuratelyl; what's specifically changing the response variable does not necessarily matter."
+                                ),
+                                html.P(
+                                    "In the specific case of this happiness dataset, the unit-to-unit interpretation between GDP and Happines Score, an otherwise arbitrary metric, seems miniscule.  But sometimes, statistically strong results regarding linear relationships can be particularly powerful, insightful, and more important than the actual results of a predictive model."
+                                ),
+                                html.P(
+                                    "In the future, our group would love the opportunity to further explore the performance of these semi-parametric models in vastly different datasets and domains, and to see whether these models overfit as much as they are said to."
+                                ),
+                            ]
+                        ),
+                        html.Section(
+                            [
                                 html.H2("References", id="references"),
                                 html.Ol(
                                     [
                                         html.Li(
-                                            'Author, A. (2024). "Lorem Ipsum Dolor Sit Amet." Journal of Statistical Learning, 45(3), 123-145.'
+                                            dcc.Markdown(
+                                                "[https://discdown.org/flexregression/smoothreg.html](https://discdown.org/flexregression/smoothreg.html)"
+                                            )
                                         ),
                                         html.Li(
-                                            'Smith, B. & Jones, C. (2023). "Consectetur Adipiscing Elit." Machine Learning Review, 12(2), 67-89.'
+                                            dcc.Markdown(
+                                                "[https://www.kaggle.com/datasets/unsdsn/world-happiness](https://www.kaggle.com/datasets/unsdsn/world-happiness)"
+                                            )
+                                        ),
+                                        html.Li(
+                                            dcc.Markdown(
+                                                "[https://www.kaggle.com/datasets/fedesoriano/the-boston-houseprice-data](https://www.kaggle.com/datasets/fedesoriano/the-boston-houseprice-data)"
+                                            )
                                         ),
                                     ],
                                     className="reference-list",
@@ -622,29 +746,29 @@ def figure_2(plot, x):
 
 @app.callback(Output("figure3", "figure"), Input("figure3", "id"))
 def figure_3(_):
-    predictors = X.columns.tolist()
+    predictors = boston_X.columns.tolist()
     n_predictors = len(predictors)
 
     fig = go.Figure()
 
     for i, predictor in enumerate(predictors):
-        x_vals = np.linspace(X[predictor].min(), X[predictor].max(), 100)
+        x_vals = np.linspace(boston_X[predictor].min(), boston_X[predictor].max(), 100)
 
         # Linear regression line for predictor
-        beta_0 = ols_model.params.iloc[0]
-        beta_i = ols_model.params.iloc[i + 1]
+        beta_0 = b_ols_model.params.iloc[0]
+        beta_i = b_ols_model.params.iloc[i + 1]
         y_pred_lr_line = beta_0 + beta_i * x_vals
 
         # GAM smooth for predictor
-        X_grid = X.mean().values.reshape(1, -1).repeat(100, axis=0)
+        X_grid = boston_X.mean().values.reshape(1, -1).repeat(100, axis=0)
         X_grid[:, i] = x_vals
         y_pred_gam_line = gam.predict(X_grid)
 
         # Scatter points (actual house prices)
         fig.add_trace(
             go.Scatter(
-                x=X[predictor],
-                y=y,
+                x=boston_X[predictor],
+                y=boston_y,
                 mode="markers",
                 name="Actual Prices",
                 visible=(i == 0),
@@ -719,6 +843,127 @@ def figure_3(_):
         height=600,
     )
 
+    return fig
+
+
+@app.callback(Output("figure4", "figure"), Input("figure4", "id"))
+def build_figure(_):
+    data = happiness
+    initial_x = "gdp"
+    # --- Build subplots ---
+    fig = make_subplots(
+        rows=1, cols=2, subplot_titles=("Linear Fit", "Smooth (GAM) Fit")
+    )
+
+    # initial traces
+    traces = make_traces(initial_x, data)
+    fig.add_trace(traces[0], row=1, col=1)
+    fig.add_trace(traces[1], row=1, col=2)
+    fig.add_trace(traces[2], row=1, col=1)
+    fig.add_trace(traces[3], row=1, col=2)
+
+    # --- Dropdown updates ---
+    buttons = []
+    for col in x_options:
+        traces = make_traces(col, data)
+        buttons.append(
+            dict(
+                label=col,
+                method="update",
+                args=[
+                    {
+                        "x": [traces[0].x, traces[1].x, traces[2].x, traces[3].x],
+                        "y": [traces[0].y, traces[1].y, traces[2].y, traces[3].y],
+                    },
+                    {
+                        "title.text": f"Model Fit Comparison: {col}",
+                        "xaxis.title.text": col,
+                        "xaxis2.title.text": col,
+                        "yaxis.title.text": "Happiness Score",
+                        "yaxis2.title.text": "Happiness Score",
+                    },
+                ],
+            )
+        )
+
+    fig.update_layout(
+        title=f"Model Fit Comparison: {initial_x}",
+        width=1000,
+        height=500,
+        updatemenus=[
+            dict(
+                type="dropdown",
+                buttons=buttons,
+                x=0.5,
+                y=1.15,
+                xanchor="center",
+                yanchor="top",
+            )
+        ],
+    )
+    return fig
+
+
+@app.callback(Output("figure5", "figure"), Input("figure5", "id"))
+def build_residual_figure(_):
+    data = happiness
+    initial_x = "gdp"
+    # --- Build subplots ---
+    fig = make_subplots(
+        rows=1, cols=2, subplot_titles=("Linear Residuals", "Smooth (GAM) Residuals")
+    )
+
+    # initial traces
+    traces = make_residual_traces(initial_x, data)
+    fig.add_trace(traces[0], row=1, col=1)  # linear panel
+    fig.add_trace(traces[1], row=1, col=2)  # gam panel
+
+    # horizontal zero lines
+    fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=1)
+    fig.add_hline(y=0, line_dash="dash", line_color="black", row=1, col=2)
+
+    # dropdown buttons
+    buttons = []
+    for col in x_options:
+        traces = make_residual_traces(col, data)
+        buttons.append(
+            dict(
+                label=col,
+                method="update",
+                args=[
+                    {
+                        "x": [traces[0].x, traces[1].x],
+                        "y": [traces[0].y, traces[1].y],
+                        "hovertext": [traces[0].hovertext, traces[1].hovertext],
+                    },
+                    {
+                        "title.text": f"Residual Comparison: {col}",
+                        "xaxis.title.text": col,
+                        "xaxis2.title.text": col,
+                        "yaxis.title.text": "Residuals",
+                        "yaxis2.title.text": "Residuals",
+                    },
+                    [0, 1],  # update both traces only, not hlines
+                ],
+            )
+        )
+
+    fig.update_layout(
+        title=f"Residual Comparison: {initial_x}",
+        width=1000,
+        height=500,
+        showlegend=False,
+        updatemenus=[
+            dict(
+                type="dropdown",
+                buttons=buttons,
+                x=0.5,
+                xanchor="center",
+                y=1.15,
+                yanchor="top",
+            )
+        ],
+    )
     return fig
 
 
