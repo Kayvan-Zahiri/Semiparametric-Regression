@@ -1,3 +1,5 @@
+import os
+
 from statsmodels.graphics.gofplots import qqplot
 from dash import dcc, html, Dash, Input, Output
 from plotly.subplots import make_subplots
@@ -14,6 +16,8 @@ matplotlib.use("Agg")
 
 app = Dash(__name__, assets_folder="assets")
 app.title = "Semi-Parametric Regression Visualizer"
+# Flask WSGI app used by gunicorn (`main:server`).
+server = app.server
 
 # ----------------------
 # Dataset
@@ -956,4 +960,4 @@ def build_residual_figure(_):
 
 
 if __name__ == "__main__":
-    app.run(port=8050)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "8050")))
